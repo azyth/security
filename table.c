@@ -498,7 +498,6 @@ void print_connection(list_t* list) {
     src_ip.s_addr = list->connection->four_tuple[0];
     dest_ip.s_addr = list->connection->four_tuple[2];
 
-
     int src_port = list->connection->four_tuple[1];
     int dest_port = list->connection->four_tuple[3];
     int num_packets = list->connection->num_packets;
