@@ -167,7 +167,6 @@ void new_connection(packet_t* p, hashtable_t* table) {
  * updates a connection in the flow table if 4-tuple already present
 */
 void update_connection(packet_t* p, list_t* list, hashtable_t* flowtable, hashtable_t* sourcetable) {
-// ++(list->connection->num_packets);
     list->connection->last_packet_time = p->timestamp;
 
     //if from the client increment client packets
@@ -180,33 +179,31 @@ void update_connection(packet_t* p, list_t* list, hashtable_t* flowtable, hashta
             list->connection->last_packet_type = SYN_ACK;
             list->connection->last_packet_from = SERVER;
     }
-  
-  //if ack sent from client in response to SYN_ACK
+    //if ack sent from client in response to SYN_ACK
     else if (p->type == ACK && list->connection->last_packet_type == SYN_ACK
         && p->four_tuple[2] == list->connection->four_tuple[2]) {
             list->connection->last_packet_type = ACK;
             list->connection->last_packet_from = CLIENT;
             list->connection->status = OPEN;
     }
-  //if fin from client->serv
+    //if fin from client->serv
     else if ((p->type == FIN || p->type == FIN_ACK) && p->four_tuple[2] == list->connection->four_tuple[2]) {
         list->connection->status = CLOSING;
         list->connection->client_fin = 1;
         if (list->connection->server_fin == 1)
             list->connection->status = CLOSED;
     }
-  //if fin from serv after client already sent fin
+    //if fin from serv after client already sent fin
     else if ((p->type == FIN || p->type == FIN_ACK) && p->four_tuple[2] == list->connection->four_tuple[0]) {
         list->connection->status = CLOSING;
         list->connection->server_fin = 1;
         if (list->connection->client_fin == 1)
             list->connection->status = CLOSED;
     }
-  //if its a regular packet and status == open or closing
+    //if its a regular packet and status == open or closing
     else if (list->connection->status != CLOSED) {
         list->connection->last_packet_type = p->type;
     }
-
     if (list->connection->status == CLOSED) {
         remove_flow(list, flowtable, sourcetable);
     }
@@ -296,7 +293,6 @@ void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
     list->source->last_packet_time = p->timestamp;    
     double ratio;
 
-
     // Test to see if ratio of syns/total packets is too high
     if (p->type == SYN) {
         ++(list->source->num_syns);
@@ -308,7 +304,6 @@ void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
             }
         }
     }
-
     // Test to see if ratio of fins/total packets is too high
     if (p->type == FIN) {
         ++(list->source->num_fins);
@@ -318,7 +313,6 @@ void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
             list->source->dest_ip = p->four_tuple[2];
         }
     }
-
     if (p->type == XMAS) {
         ++(list->source->num_xmas);
         ratio = (double)list->source->num_xmas/list->source->total_packets;
@@ -334,7 +328,6 @@ void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
         list->source->dest_ip = p->four_tuple[2];
         }
     }  
-
     if (p->type == RST) {
         ++(list->source->num_rsts);
         if (list->source->num_rsts > 100) {
@@ -342,7 +335,6 @@ void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
         list->source->dest_ip = p->four_tuple[2];
         }    
     }
-
   //check for sequential scans regardless of flags
     if (check_destination(p,list) == SAME_IP && (p->four_tuple[3] == list->source->last_dest_port + 1 || p->four_tuple[3] == list->source->last_dest_port - 1)) {
         ++(list->source->num_sequential_ports);
@@ -350,7 +342,6 @@ void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
             list->source->portscanner = SEQ_SCAN;
         }
     }
-
     //check for horizontal scans
     if (check_destination(p, list) == SAME_PORT) {
         ++list->source->num_horizontal_scans;
@@ -358,7 +349,6 @@ void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
             list->source->portscanner = HORIZ_SCAN;
         }
     }
-
     list->source->last_dest_port = p->four_tuple[3];
     list->source->last_dest_ip = p->four_tuple[2];
 }
@@ -430,7 +420,7 @@ void update_destination(packet_t* p, hashtable_t* desttable){
 */
 void remove_flow(list_t* list, hashtable_t* flowtable, hashtable_t* sourcetable){
     decrement_connection(list, sourcetable);
-    remove_connection(list, flowtable);//do not print it out
+    remove_connection(list, flowtable);
 }
 
 
@@ -439,7 +429,7 @@ void decrement_connection(list_t* list, hashtable_t* sourcetable){
     //find index of src_ip in sourcetable
     list_t* srclist = lookup(list->connection->four_tuple, sourcetable);
 
-    //reduce syn and fin by one for a legit connection. (possible more where in there)
+    //reduce syn and fin by one for a legit connection. (its possible more where in there)
     --srclist->source->num_syns;
     --srclist->source->num_fins;
 
@@ -452,10 +442,9 @@ void decrement_connection(list_t* list, hashtable_t* sourcetable){
 */
 void remove_connection(list_t* list, hashtable_t* hashtable) {
     if (hashtable->table_type == FLOW) {
-        //printf("    remove flow connection\n");
-
-        if (list->prev != NULL) list->prev->next = list->next;
-
+        if (list->prev != NULL) {
+			list->prev->next = list->next;
+		}
         else {
             unsigned int hashval = hash_key(list->connection->four_tuple, hashtable);
             hashtable->table[hashval] = list->next;
@@ -477,8 +466,7 @@ void remove_src_connection(list_t* list, hashtable_t* hashtable, int i) {
         free_table(list->source->dest_ports);
         free(list->source);
     }
-
-    else if (hashtable->table_type == PORT) { 
+	else if (hashtable->table_type == PORT) { 
         hashtable->table[i] = list->next;
         free(list->destination);
     }
