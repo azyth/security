@@ -4,7 +4,9 @@
 * Portscanning hashtable * 
 **************************/
 
-
+/* 
+ * hashes key based on table type 
+*/
 unsigned int hash_key(uint32_t four_tuple[], hashtable_t* hashtable) {
     if (hashtable->table_type == FLOW) {
         unsigned int xor = four_tuple[0] ^ four_tuple[2] ^ four_tuple[1] ^ four_tuple[3];
@@ -90,12 +92,19 @@ list_t* lookup(uint32_t four_tuple[], hashtable_t* hashtable) {
   }
   return NULL; //no match
 }
+
+/* 
+ * compares destination ip/port for a given source ip 
+*/
 int compare_two_tuple(uint32_t p[], uint32_t destination[]) {
     if (p[2] == destination[1] && p[3] == destination[2]) 
         return 0;
     return 1; //2 tuples (destination ip/port) not the same
 }
 
+/* 
+ * compares a four tuple regardless of packet direction
+*/
 int compare_four_tuple(uint32_t p[], uint32_t connection[]) {
   //if packet going from client->server
     if (p[0] == connection[0] &&
@@ -112,6 +121,9 @@ int compare_four_tuple(uint32_t p[], uint32_t connection[]) {
     return 1; //4 tuples not the same
 }
 
+/* 
+ * malloc's and initializes a new connection in the flow table 
+*/
 void new_connection(packet_t* p, hashtable_t* table) {
     list_t* new_list;
 
@@ -151,6 +163,9 @@ void new_connection(packet_t* p, hashtable_t* table) {
     table->table[hashval] = new_list;
 }
 
+/* 
+ * updates a connection in the flow table if 4-tuple already present
+*/
 void update_connection(packet_t* p, list_t* list, hashtable_t* flowtable, hashtable_t* sourcetable) {
 // ++(list->connection->num_packets);
     list->connection->last_packet_time = p->timestamp;
@@ -197,6 +212,9 @@ void update_connection(packet_t* p, list_t* list, hashtable_t* flowtable, hashta
     }
 }
 
+/* 
+ * malloc's and initializes a source in the srctable 
+*/
 void new_source(packet_t* p, hashtable_t* srctable) {
     list_t* new_list;
 
@@ -249,7 +267,9 @@ void new_source(packet_t* p, hashtable_t* srctable) {
 }
 
 
-
+/* 
+ * quick method to aid in horizontal vs vertical port scans 
+*/
 enum dest check_destination(packet_t* p, list_t* list) {
     if (p->four_tuple[2] == list->source->last_dest_ip && p->four_tuple[3] == list->source->last_dest_port)
         return SAME_IP_PORT;
@@ -261,6 +281,10 @@ enum dest check_destination(packet_t* p, list_t* list) {
         return DIFFERENT;
 }
 
+/* 
+ * updates a source in the source table to keep track of packet type counts
+ * and posibly label as portscanner
+*/
 void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
     ++(list->source->total_packets);
 
@@ -339,6 +363,11 @@ void update_source(packet_t* p, list_t* list, hashtable_t* srctable) {
     list->source->last_dest_ip = p->four_tuple[2];
 }
 
+/* 
+ * malloc's and initializes a new destination ip/port for a given
+ * source ip in the source table.
+ * dest table's size field marks how many unique ports were scanned 
+*/
 void new_destination(packet_t* p, hashtable_t* desttable) {
     list_t* new_list;
 
@@ -381,6 +410,9 @@ void new_destination(packet_t* p, hashtable_t* desttable) {
     ++desttable->size;
 }
 
+/* 
+ * updates total count and timestamp for given destination entry
+*/
 void update_destination(packet_t* p, hashtable_t* desttable){
     list_t* list = lookup(p->four_tuple, desttable);
 
@@ -393,10 +425,15 @@ void update_destination(packet_t* p, hashtable_t* desttable){
     }
 }
 
+/* 
+ * Two step process to remove completed connections
+*/
 void remove_flow(list_t* list, hashtable_t* flowtable, hashtable_t* sourcetable){
     decrement_connection(list, sourcetable);
     remove_connection(list, flowtable);//do not print it out
 }
+
+
 
 void decrement_connection(list_t* list, hashtable_t* sourcetable){
     //find index of src_ip in sourcetable
@@ -410,98 +447,64 @@ void decrement_connection(list_t* list, hashtable_t* sourcetable){
     ++(srclist->source->num_comp_conn);
 }
 
+/* 
+ * removes connection from flow table 
+*/
 void remove_connection(list_t* list, hashtable_t* hashtable) {
     if (hashtable->table_type == FLOW) {
         //printf("    remove flow connection\n");
 
-        if (list->prev != NULL) {
-            list->prev->next = list->next;
-        }
+        if (list->prev != NULL) list->prev->next = list->next;
+
         else {
             unsigned int hashval = hash_key(list->connection->four_tuple, hashtable);
             hashtable->table[hashval] = list->next;
         }
+        if (list->next != NULL) list->next->prev = list->prev;
 
-        if (list->next != NULL) {
-            list->next->prev = list->prev;
-        }
         free(list->connection);
     }
-
-    else if (hashtable->table_type == SRC) {
-        //printf("    remove src entry\n");
-
-        uint32_t fake_four_tuple[4] = { list->source->ip, 0, 0, 0 };
-        unsigned int hashval = hash_key(fake_four_tuple, hashtable);
-        hashtable->table[hashval] = list->next;
-
-        //free_table(list->source->dest_ports);
-        free(list->source);
-    }
-
-    else if (hashtable->table_type == PORT) { 
-        //printf("    remove dest entry\n");
-
-        //if (list == NULL) printf("how?\n");
-        int srcip = list->destination->three_tuple[0];
-        int destip = list->destination->three_tuple[1];
-        int destport = list->destination->three_tuple[2];
-        uint32_t fake_four_tuple[4] = { srcip, 0, destip, destport };
-        unsigned int hashval = hash_key(fake_four_tuple, hashtable);
-        hashtable->table[hashval] = list->next;
-
-        free(list->destination);
-    }
-
    free(list);
 }
+
+/* 
+ * removes entry from source or destination tables
+*/
 void remove_src_connection(list_t* list, hashtable_t* hashtable, int i) {
 
     if (hashtable->table_type == SRC) {
-
         hashtable->table[i] = list->next;
-
         free_table(list->source->dest_ports);
         free(list->source);
     }
 
     else if (hashtable->table_type == PORT) { 
-
         hashtable->table[i] = list->next;
-
         free(list->destination);
     }
 
    free(list);
 }
 
+/* 
+ * free's malloc'ed hashtable
+*/
 void free_table(hashtable_t* hashtable){
     if (hashtable == NULL) return;
-    //if (/*hashtable->table_type == SRC || */hashtable->table_type == PORT) return;
-
-    printf("free_table %d with %d buckets\n", hashtable->table_type, hashtable->num_buckets);
 
   //free each element in the hashtable's table
     int i;
-
-        for (i = 0; i < hashtable->num_buckets; ++i) {
-            while (hashtable->table[i] != NULL) {
-                if (hashtable->table_type == FLOW)
-                    remove_connection(hashtable->table[i], hashtable);
-                else
-                    remove_src_connection(hashtable->table[i], hashtable, i);
-            }
+    for (i = 0; i < hashtable->num_buckets; ++i) {
+        while (hashtable->table[i] != NULL) {
+            if (hashtable->table_type == FLOW)
+                remove_connection(hashtable->table[i], hashtable);
+            else
+                remove_src_connection(hashtable->table[i], hashtable, i);
         }
-
-
-    printf("    freed all entries in table\n");
+    }
     //free hashtable itself
     free(hashtable->table);
-    printf("    freed ->table\n");
-
     free(hashtable);
-    printf("    freed whole table struct\n");
-
 }
 
 void print_connection(list_t* list) {

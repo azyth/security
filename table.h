@@ -98,9 +98,9 @@ typedef struct source {
     int num_nul;
     int num_rsts;
     int num_sequential_ports;
+    int num_horizontal_scans;
     int last_dest_port;
     int last_dest_ip;
-    int num_horizontal_scans;
 
     enum packet_type last_type;
     struct timeval first_packet_time;  
@@ -157,8 +157,6 @@ void free_table(hashtable_t* table);
 void remove_flow(list_t* connection, hashtable_t* flowtable, hashtable_t* sourcetable);
 void remove_connection(list_t* connection, hashtable_t* hashtable);
 void remove_src_connection(list_t* list, hashtable_t* hashtable, int i);
-
-
 void decrement_connection(list_t* list, hashtable_t* sourcetable);
 void receive_packet(packet_t* p, hashtable_t* flowtable, hashtable_t* sourcetable);
 void print_connection(list_t* list);
