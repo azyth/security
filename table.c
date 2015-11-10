@@ -426,19 +426,20 @@ void remove_connection(list_t* list, hashtable_t* hashtable) {
             list->next->prev = list->prev;
         }
         free(list->connection);
-
     }
-    else if (hashtable->table_type == SRC) {//type SRC
+
+    else if (hashtable->table_type == SRC) {
         //printf("    remove src entry\n");
 
         uint32_t fake_four_tuple[4] = { list->source->ip, 0, 0, 0 };
         unsigned int hashval = hash_key(fake_four_tuple, hashtable);
         hashtable->table[hashval] = list->next;
 
-        if (list->source->dest_ports != NULL) free_table(list->source->dest_ports);
+        //free_table(list->source->dest_ports);
         free(list->source);
     }
-    else if (hashtable->table_type == PORT) { //type == PORT
+
+    else if (hashtable->table_type == PORT) { 
         //printf("    remove dest entry\n");
 
         //if (list == NULL) printf("how?\n");
@@ -454,34 +455,45 @@ void remove_connection(list_t* list, hashtable_t* hashtable) {
 
    free(list);
 }
+void remove_src_connection(list_t* list, hashtable_t* hashtable, int i) {
 
+    if (hashtable->table_type == SRC) {
+
+        hashtable->table[i] = list->next;
+
+        free_table(list->source->dest_ports);
+        free(list->source);
+    }
+
+    else if (hashtable->table_type == PORT) { 
+
+        hashtable->table[i] = list->next;
+
+        free(list->destination);
+    }
+
+   free(list);
+}
 
 void free_table(hashtable_t* hashtable){
     if (hashtable == NULL) return;
-    if (/*hashtable->table_type == SRC || */hashtable->table_type == PORT) return;
+    //if (/*hashtable->table_type == SRC || */hashtable->table_type == PORT) return;
 
     printf("free_table %d with %d buckets\n", hashtable->table_type, hashtable->num_buckets);
 
   //free each element in the hashtable's table
     int i;
-    list_t* list;
-    for (i = 0; i < hashtable->num_buckets; ++i) {
-        int conn = 0;
-        list = hashtable->table[i];
-       // printf("iterating through bucket %d", i);
-        if (list == NULL) {
-            //printf("bucket %d null\n", i);
-            continue;
+
+        for (i = 0; i < hashtable->num_buckets; ++i) {
+            while (hashtable->table[i] != NULL) {
+                if (hashtable->table_type == FLOW)
+                    remove_connection(hashtable->table[i], hashtable);
+                else
+                    remove_src_connection(hashtable->table[i], hashtable, i);
+            }
         }
-        //printf("didnt continue");
-        while (list != NULL) {
-            remove_connection(hashtable->table[i], hashtable);
-            list = hashtable->table[i];
-            ++conn;
-        }
-        //printf(" finished iterating\n");
-        if (conn > 50) printf("%d conns removed from bucket\n", conn);
-    }
+
+
     printf("    freed all entries in table\n");
     //free hashtable itself
     free(hashtable->table);

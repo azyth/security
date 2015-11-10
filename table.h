@@ -156,6 +156,9 @@ void new_destination(packet_t* p, hashtable_t* desttable);
 void free_table(hashtable_t* table);
 void remove_flow(list_t* connection, hashtable_t* flowtable, hashtable_t* sourcetable);
 void remove_connection(list_t* connection, hashtable_t* hashtable);
+void remove_src_connection(list_t* list, hashtable_t* hashtable, int i);
+
+
 void decrement_connection(list_t* list, hashtable_t* sourcetable);
 void receive_packet(packet_t* p, hashtable_t* flowtable, hashtable_t* sourcetable);
 void print_connection(list_t* list);

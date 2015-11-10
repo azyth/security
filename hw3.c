@@ -122,7 +122,8 @@ int main(int argc, char** argv) {
 	hashtable_t* srctable = create_table(65536, SRC);
 	
 	// filenames are found in argv[2] to argv[argc-1]
-	for (counter = 2; counter < argc; ++counter) {
+	counter = 2;
+	//for (counter = 2; counter < argc; ++counter) {
 		// open file for processing
 		if ((handle = pcap_open_offline(argv[counter], errbuf)) == NULL) {
 			printf("error loading [%s]. reason: [%s]\n", argv[counter], errbuf);
@@ -153,7 +154,6 @@ int main(int argc, char** argv) {
 					 tcp_hdr->ack ==1)					{ type = RST_ACK; }
 
 			else if (tcp_hdr->rst == 1)					{ type = RST; }
-
 
 			else if (tcp_hdr->fin == 1 && 
 					 tcp_hdr->urg == 1 && 
@@ -196,7 +196,7 @@ int main(int argc, char** argv) {
 		}
 		print_portscanners(srctable);
 		pcap_close(handle);
-	}
+	//}
 	free_table(flowtable);
 	free_table(srctable);
 	return 0;
