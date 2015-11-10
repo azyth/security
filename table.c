@@ -37,7 +37,7 @@ hashtable_t* create_table(int num_buckets, int table_type){
     }
     hashtable->size = 0;
     int i;
-    for (i = 0; i < num_buckets; ++i) {
+    for (i = 0; i < num_buckets; i++) {
         hashtable->table[i] = NULL;
     }
     hashtable->num_buckets = num_buckets; 
@@ -91,8 +91,9 @@ list_t* lookup(uint32_t four_tuple[], hashtable_t* hashtable) {
   return NULL; //no match
 }
 int compare_two_tuple(uint32_t p[], uint32_t destination[]) {
-    if (p[2] == destination[1] && p[3] == destination[2]) 
+    if (p[2] == destination[1] && p[3] == destination[2]){ 
         return 0;
+	}
     return 1; //2 tuples (destination ip/port) not the same
 }
 
@@ -200,6 +201,7 @@ void update_connection(packet_t* p, list_t* list, hashtable_t* flowtable, hashta
 void new_source(packet_t* p, hashtable_t* srctable) {
     list_t* new_list;
 
+
     if (lookup(p->four_tuple, srctable) != NULL) return;
 
     if ((new_list = malloc(sizeof(list_t)) ) == NULL) {
@@ -208,6 +210,7 @@ void new_source(packet_t* p, hashtable_t* srctable) {
     }
     new_list->next = NULL;
     new_list->prev = NULL;
+	srctable->size++;
  
     //initialize new source
     new_list->source = malloc(sizeof(source_t));
@@ -430,17 +433,28 @@ void remove_connection(list_t* list, hashtable_t* hashtable) {
     }
     else if (hashtable->table_type == SRC) {//type SRC
         //printf("    remove src entry\n");
-
+		if (list->prev != NULL) {
+            list->prev->next = list->next;
+        }
+		if (list->next != NULL) {
+            list->next->prev = list->prev;
+        }
         uint32_t fake_four_tuple[4] = { list->source->ip, 0, 0, 0 };
         unsigned int hashval = hash_key(fake_four_tuple, hashtable);
         hashtable->table[hashval] = list->next;
 
-        if (list->source->dest_ports != NULL) free_table(list->source->dest_ports);
-        free(list->source);
+        //if (list->source->dest_ports != NULL) free_table(list->source->dest_ports);
+        free_table(list->source->dest_ports);
+		free(list->source);
     }
     else if (hashtable->table_type == PORT) { //type == PORT
         //printf("    remove dest entry\n");
-
+		if (list->prev != NULL) {
+            list->prev->next = list->next;
+        }
+		if (list->next != NULL) {
+            list->next->prev = list->prev;
+        }		
         //if (list == NULL) printf("how?\n");
         int srcip = list->destination->three_tuple[0];
         int destip = list->destination->three_tuple[1];
@@ -465,7 +479,7 @@ void free_table(hashtable_t* hashtable){
   //free each element in the hashtable's table
     int i;
     list_t* list;
-    for (i = 0; i < hashtable->num_buckets; ++i) {
+    for (i = 0; i < hashtable->num_buckets; i++) {
         int conn = 0;
         list = hashtable->table[i];
        // printf("iterating through bucket %d", i);
